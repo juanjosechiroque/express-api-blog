@@ -1,24 +1,21 @@
-const Post = require('./model');
 const store = require('./store');
 
 module.exports = {
   
   getPosts: async function (req, res) {
     
-    try {      
-      
-      const query = {};
-
-      if (req.query.published) query.published = req.query.published;
-      if (req.query.title) query.title = { $regex: req.query.title };
-
+    const query = {};
+    
+    if (req.query.published) query.published = req.query.published;
+    if (req.query.title) query.title = { $regex: req.query.title };
+    
+    try {
       const posts = await store.list(query);
-      res.json(posts);
-      
+      return res.json(posts);      
     } catch(err) {
       console.log('[response error]', err.message);      
       return res.sendStatus(500);      
-    }
+    } 
     
   },
   
@@ -27,27 +24,33 @@ module.exports = {
     if (!req.body.title) return res.sendStatus(400);
     if (!req.body.content) return res.sendStatus(400);
     
-    const post = new Post({
-      title: req.body.title,
-      content: req.body.content,
-      published: req.body.published,
-    });  
-    
-    post.save();
-    res.status(201).json(post);
+    try {
+      const post = store.add(req.body.title,req.body.content,req.body.published);    
+      return res.status(201).json(post);      
+    } catch (err) {
+      console.log('[response error]', err.message);      
+      return res.sendStatus(500);    
+    }
     
   },
 
-  getPost: function (req, res, next) {
+  getPost: async function (req, res, next) {
     
-    Post.findById(req.params.postId, (err, post) => {      
-      if (err) return res.send(err);      
-      if (post) {
-        req.post = post;
-        return next();
+    try {            
+      
+      const post = await store.get(req.params.postId);          
+      
+      if (!post){
+        return res.sendStatus(404);    
       }
-      return res.sendStatus(404);
-    });
+      
+      req.post = post;      
+      return next();  
+      
+    } catch (err) {
+      console.log('[response error]', err.message);      
+      return res.sendStatus(500);    
+    }
     
   },
     
@@ -55,44 +58,45 @@ module.exports = {
     return res.json(req.post);
   },
   
-  put: function (req, res) {
+  put: async function (req, res) {
     
-    const { post } = req;
+    let { post } = req;
     
-    post.title = req.body.title;    
-    post.content = req.body.content;
+    if (req.body.title) post.title = req.body.title;
+    if (req.body.content) post.content = req.body.content;
+    if (req.body.published) post.published = req.body.published;
     
-    post.save((err) => {
-      if (err) return res.send(err);
-      return res.json(post);
-    });
-    
-  },
-  
-  patch: function (req, res){
-    
-    const { post } = req;
-    
-    if (req.body._id) delete req.body._id;
-    
-    Object.entries(req.body).forEach(item => {
-      const key = item[0];
-      const value = item[1];
-      post[key] = value;
-    });    
-    
-    post.save((err) => {
-      if (err) return res.send(err);
-      return res.json(post);
-    });
+    try {
+      
+      const { title, content, published } = post;     
+      
+      const result = await store.update(post._id, { 
+        title, 
+        content, 
+        published,
+      });  
+      
+      return res.json(post); 
+      
+    } catch (err) {
+      console.log('[response error]', err.message);      
+      return res.sendStatus(500);    
+    }
     
   },
   
-  deletePost: function (req, res){
-    req.post.remove((err) => {
-      if (err) return res.send(err);
-      return res.sendStatus(204);
-    });
+  deletePost: async function (req, res){
+    
+    try {
+      
+      await store.remove(req.post._id);         
+      return res.sendStatus(204);      
+      
+    } catch(err) {
+      console.log('[response error]', err.message);      
+      return res.sendStatus(500);
+    }
+    
   },
   
 }
