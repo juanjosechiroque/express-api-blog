@@ -1,18 +1,24 @@
 const Post = require('./model');
+const store = require('./store');
 
 module.exports = {
   
-  getPosts: function (req, res) {
+  getPosts: async function (req, res) {
     
-    const query = {};
+    try {      
+      
+      const query = {};
 
-    if (req.query.published) query.published = req.query.published;
-    if (req.query.title) query.title = { $regex: req.query.title };
+      if (req.query.published) query.published = req.query.published;
+      if (req.query.title) query.title = { $regex: req.query.title };
 
-    Post.find(query, (err, posts) => {      
-      if (err) return res.send(err);       
-      return res.json(posts);      
-    });
+      const posts = await store.list(query);
+      res.json(posts);
+      
+    } catch(err) {
+      console.log('[response error]', err.message);      
+      return res.sendStatus(500);      
+    }
     
   },
   
