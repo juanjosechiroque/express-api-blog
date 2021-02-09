@@ -4,6 +4,8 @@ module.exports = {
   
   createCategory: function (req, res) {
     
+    if (!req.body.title) return res.sendStatus(400);
+    
     try {
       
       const category = store.add(req.body.title);      
